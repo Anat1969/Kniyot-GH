@@ -81,30 +81,8 @@ export default function App() {
     : save > 0.5 ? `${nis(best.total)} ₪ במקום ${nis(ref!.total)} ₪ ב${storeLabel(ref!.store)}: ${pct.toFixed(0)}% פחות${best.dist != null ? `, ${best.dist.toFixed(1)} ק״מ מהבית` : ''}. ${pct < 3 ? 'פער קטן: אין סיבה לשנות הרגלים.' : netSave > 0 ? `אחרי עלות נסיעה נשארים ${nis(netSave)} ₪.` : 'עלות הנסיעה גדולה מהחיסכון: נשארים במקום.'}`
       : `${nis(best.total)} ₪ ב${storeLabel(best.store)}. אפשר להפסיק לתהות.`;
 
-  return (
-    <div className="app">
-      <header className="bar">
-        <a className="brand press" href="#/" aria-label="קניות: חזרה לכריכה">
-          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M5 3h14v18l-2.3-1.6L14.3 21 12 19.4 9.7 21l-2.4-1.6L5 21z" fill="none" stroke="currentColor" strokeWidth="1.75" /><path d="M8.5 8h7M8.5 12h7" stroke="currentColor" strokeWidth="1.75" /></svg>
-          <b>קניות</b>
-        </a>
-        <nav aria-label="ניווט">
-          {NAV.map(([r, label, hint]) => <a key={r} href={`#/${r}`} className={`nav press${route === r ? ' on' : ''}`} aria-current={route === r ? 'page' : undefined} title={hint}>{label}</a>)}
-        </nav>
-        <span className="bar-date" title="תאריך קובצי המחירים">מחירי {fmtDate(data.meta.date)}</span>
-        {createElement('ai-menu', { chat: SESSION })}
-      </header>
-
-      {route === 'cover' && <Cover data={data} results={results} best={best} refR={ref} />}
-      {route === 'trust' && <Trust data={data} results={results} basketSize={saved.basket.length} />}
-      {(route === 'where' || route === 'when' || route === 'what') && (
-        <main className="stage">
-          <section className="main">
-            <div className="lead">
-              <p className="crumb">{route === 'where' ? 'היכן לקנות' : route === 'when' ? 'מתי לקנות' : 'מה מייקר את הסל'}</p>
-              <h1>{headline}</h1>
-              <p className="sub">{sub}</p>
-            </div>
+  const who = isSample ? 'הסל לדוגמה' : 'הסל שלך';
+  const controls = (
             <div className="controls" aria-label="הגדרות ההשוואה">
               <label className="ctl"><span>הבית</span>
                 <span className="field sm"><input value={addr} onChange={(e) => setAddr(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') geocode(); }} placeholder={st.home.label} aria-label="כתובת הבית" />
@@ -124,7 +102,34 @@ export default function App() {
               </div>
               {addrMsg && <span className="muted">{addrMsg}</span>}
             </div>
+  );
 
+  return (
+    <div className="app">
+      <header className="bar">
+        <a className="brand press" href="#/" aria-label="קניות: חזרה לכריכה">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M5 3h14v18l-2.3-1.6L14.3 21 12 19.4 9.7 21l-2.4-1.6L5 21z" fill="none" stroke="currentColor" strokeWidth="1.75" /><path d="M8.5 8h7M8.5 12h7" stroke="currentColor" strokeWidth="1.75" /></svg>
+          <b>קניות</b>
+        </a>
+        <nav aria-label="ניווט">
+          {NAV.map(([r, label, hint]) => <a key={r} href={`#/${r}`} className={`nav press${route === r ? ' on' : ''}`} aria-current={route === r ? 'page' : undefined} title={hint}>{label}</a>)}
+        </nav>
+        <span className="bar-date" title="תאריך קובצי המחירים">מחירי {fmtDate(data.meta.date)}</span>
+        {createElement('ai-menu', { chat: SESSION })}
+      </header>
+
+      {route === 'cover' && <Cover data={data} results={results} best={best} refR={ref} />}
+      {route === 'trust' && <Trust data={data} results={results} basketSize={saved.basket.length} />}
+      {(route === 'where' || route === 'when' || route === 'what') && (
+        <main className="stage">
+          <section className="main">
+            {route === 'where' && <>
+            <div className="lead">
+              <p className="crumb">היכן לקנות</p>
+              <h1>{headline}</h1>
+              <p className="sub">{sub}</p>
+            </div>
+            {controls}</>}
             {route === 'where' && (
               <div className="where">
                 <div className="map-wrap">
@@ -144,8 +149,8 @@ export default function App() {
                 <Ranking results={results} bestI={best ? best.i : null} refI={refI} selI={selI} hoverI={hoverI} onHover={setHover} onSelect={(i) => setSel(i === selI ? null : i)} sort={sort} onSort={setSort} />
               </div>
             )}
-            {route === 'when' && <When basket={saved.basket} byCode={data.byCode} meta={data.meta} results={results} history={data.history} />}
-            {route === 'what' && refI != null && <What basket={saved.basket} byCode={data.byCode} meta={data.meta} results={results} refI={refI} usePromos={st.promos} />}
+            {route === 'when' && <When basket={saved.basket} byCode={data.byCode} meta={data.meta} results={results} history={data.history} controls={controls} who={who} />}
+            {route === 'what' && refI != null && <What basket={saved.basket} byCode={data.byCode} meta={data.meta} results={results} refI={refI} usePromos={st.promos} controls={controls} who={who} />}
           </section>
           <Basket rows={data.rows} byCode={data.byCode} basket={saved.basket} shown={shown} best={best} isSample={isSample} onChange={setBasket} flash={flash} />
         </main>

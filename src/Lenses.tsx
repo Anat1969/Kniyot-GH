@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { daysUntil, nis, pareto, bestPair, storeLabel, unitText, type History, type Item, type Meta, type Row, type StoreResult } from './logic';
 
 const HE_DAYS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
@@ -38,7 +39,7 @@ export function Ranking({ results, bestI, refI, selI, hoverI, onHover, onSelect,
 }
 
 // ---------- WHEN: promos on my basket, on a time axis ----------
-export function When({ basket, byCode, meta, results, history }: { basket: Item[]; byCode: Map<string, Row>; meta: Meta; results: StoreResult[]; history: History }) {
+export function When({ basket, byCode, meta, results, history, controls, who }: { basket: Item[]; byCode: Map<string, Row>; meta: Meta; results: StoreResult[]; history: History; controls: ReactNode; who: string }) {
   const pool = new Set(results.filter((r) => r.inRadius).map((r) => r.i));
   const span = 21;
   const bars = basket.flatMap((b) => {
@@ -51,8 +52,7 @@ export function When({ basket, byCode, meta, results, history }: { basket: Item[
   }).sort((a, b) => (a.days ?? 999) - (b.days ?? 999));
   const soon = bars.filter((b) => b.days != null && b.days <= 7);
   const today = new Date(meta.date + 'T00:00:00Z');
-  const W = 1000, rowH = 30, left = 330, top = 34, H = top + Math.max(bars.length, 1) * rowH + 8;
-  const x = (d: number) => left + (Math.min(d, span) / span) * (W - left - 16);
+  const dayOf = (d: number) => new Date(today.getTime() + d * 86400e3);
 
   // history of the basket's lowest shelf total
   const hist = history.days.map((_, di) => basket.reduce((s, b) => {
@@ -62,34 +62,35 @@ export function When({ basket, byCode, meta, results, history }: { basket: Item[
   }, 0));
 
   return (
+    <>
+    <div className="lead">
+      <p className="crumb">מתי לקנות</p>
+      <h1>{soon.length > 0 ? <><mark>{soon.length} מבצעים</mark> על {who} נגמרים בתוך שבוע</> : bars.length > 0 ? <>אין מבצע על {who} ש<mark>נגמר השבוע</mark></> : <>היום אין מבצע פתוח שמוזיל את {who}</>}</h1>
+      <p className="sub">{bars.length > 0 ? `${bars.length} מוצרים מהסל במבצע פתוח לכולם. מה שנגמר השבוע קונים עכשיו, והשאר יכול לחכות לקנייה הבאה.` : 'מחיר המדף הזול באזור הוא המחיר הטוב ביותר היום. אין סיבה להקדים קנייה.'}</p>
+    </div>
+    {controls}
     <div className="lens-body">
       <div className="lens-main">
         <p className="legend">כל פס הוא מבצע פתוח לכולם על מוצר מהסל, מהיום ועד היום שבו הוא נגמר. <span className="sw sw-soon" /> נגמר בתוך שבוע <span className="sw sw-later" /> נגמר מאוחר יותר</p>
         {bars.length === 0 ? <p className="empty-box">אין היום מבצע פתוח לכולם שמוזיל מוצר מהסל מתחת למחיר המדף הזול באזור.</p> : (
-          <div className="scroll-y">
-            <svg viewBox={`0 0 ${W} ${H}`} className="timeline" style={{ direction: 'ltr' }} role="img" aria-label="ציר המבצעים על הסל">
-              {Array.from({ length: span + 1 }, (_, d) => {
-                const dt = new Date(today.getTime() + d * 86400e3); const dow = dt.getUTCDay();
-                return (
-                  <g key={d}>
-                    <line x1={x(d)} y1={top - 6} x2={x(d)} y2={H} stroke="#2E2E2B" strokeOpacity={dow === 0 ? 0.22 : 0.06} />
-                    {(d % 7 === 0 || dow === 5) && <text x={x(d)} y={14} textAnchor="middle" className="tl-day">{d === 0 ? 'היום' : `${HE_DAYS[dow]} ${dt.getUTCDate()}.${dt.getUTCMonth() + 1}`}</text>}
-                  </g>
-                );
-              })}
-              {bars.map((b, k) => {
-                const d = b.days == null ? span : Math.max(0.4, b.days);
-                const y = top + k * rowH;
-                return (
-                  <g key={b.row[0]}>
-                    <text x={left - 10} y={y + 15} textAnchor="end" className="tl-name">{b.row[1].slice(0, 34)}</text>
-                    <rect x={x(0)} y={y + 4} width={x(d) - x(0)} height={16} className={b.days != null && b.days <= 7 ? 'tl-soon' : 'tl-later'} />
-                    <text x={x(0) + 6} y={y + 16} className="tl-in">{b.promo[2] > 1 ? `${b.promo[2]} ב-${nis(b.promo[1] * b.promo[2], 2)}` : `${nis(b.promo[1], 2)} ₪`} · {storeLabel(meta.stores[b.promo[0]])}</text>
-                    {b.days != null && b.days <= span && <text x={x(d) + 5} y={y + 16} className="tl-end">{b.days <= 0 ? 'נגמר היום' : `עוד ${b.days} ימים`}</text>}
-                  </g>
-                );
-              })}
-            </svg>
+          <div className="tl scroll-y">
+            <div className="tl-row tl-axis"><span /><div className="tl-track">
+              {Array.from({ length: span / 7 + 1 }, (_, w) => <i key={w} style={{ insetInlineStart: `${(w * 7 / span) * 88}%` }}>{w === 0 ? 'היום' : `${HE_DAYS[dayOf(w * 7).getUTCDay()]} ${dayOf(w * 7).getUTCDate()}.${dayOf(w * 7).getUTCMonth() + 1}`}</i>)}
+            </div></div>
+            {bars.map((b) => {
+              const d = b.days == null ? span : Math.max(0.5, Math.min(span, b.days));
+              return (
+                <div className="tl-row" key={b.row[0]}>
+                  <span className="tl-name" title={b.row[1]}>{b.row[1]}</span>
+                  <div className="tl-track">
+                    <div className={`tl-bar ${b.days != null && b.days <= 7 ? 'soon' : 'later'}`} style={{ width: `${(d / span) * 88}%` }}>
+                      <b>{b.promo[2] > 1 ? `${b.promo[2]} יחידות ב-${nis(b.promo[1] * b.promo[2], 2)} ₪` : `${nis(b.promo[1], 2)} ₪`}</b> · {storeLabel(meta.stores[b.promo[0]])}
+                    </div>
+                    <small>{b.days == null || b.days > span ? 'בלי תאריך סיום קרוב' : b.days <= 0 ? 'נגמר היום' : `עוד ${b.days} ימים`}</small>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -102,6 +103,7 @@ export function When({ basket, byCode, meta, results, history }: { basket: Item[
         </div>
       </aside>
     </div>
+    </>
   );
 }
 const fmt = (d: string) => (d ? `${+d.slice(8, 10)}.${+d.slice(5, 7)}.${d.slice(0, 4)}` : '');
@@ -119,7 +121,7 @@ function Spark({ values }: { values: number[] }) {
 }
 
 // ---------- WHAT: which products carry the gap ----------
-export function What({ basket, byCode, meta, results, refI, usePromos }: { basket: Item[]; byCode: Map<string, Row>; meta: Meta; results: StoreResult[]; refI: number; usePromos: boolean }) {
+export function What({ basket, byCode, meta, results, refI, usePromos, controls, who }: { basket: Item[]; byCode: Map<string, Row>; meta: Meta; results: StoreResult[]; refI: number; usePromos: boolean; controls: ReactNode; who: string }) {
   const p = pareto(basket, byCode, results, refI, usePromos);
   const rows = p.rows.filter((r) => r.gap > 0.005);
   const max = rows.length ? rows[0].gap : 1;
@@ -127,6 +129,13 @@ export function What({ basket, byCode, meta, results, refI, usePromos }: { baske
   const single = results.filter((r) => r.eligible && r.inRadius).sort((a, b) => a.total - b.total)[0];
   const pairGain = pair && single ? single.total - pair.total : 0;
   return (
+    <>
+    <div className="lead">
+      <p className="crumb">מה מייקר את הסל</p>
+      <h1>{rows.length > 0 ? <><mark>{p.topCount} מוצרים</mark> מחזיקים {Math.round(p.topShare * 100)}% מהפער של {who}</> : <>אף מוצר ב{who} לא <mark>זול יותר</mark> במקום אחר</>}</h1>
+      <p className="sub">{rows.length > 0 ? `לא חייבים להחליף סופר. מספיק לקנות את המוצרים האלה במקום אחר, או לחכות להם למבצע. הפער המלא: ${nis(p.sum)} ₪.` : 'הסופר שלך הוא הזול ביותר לסל הזה, מוצר אחרי מוצר.'}</p>
+    </div>
+    {controls}
     <div className="lens-body">
       <div className="lens-main">
         <p className="legend">כל שורה: כמה המוצר יקר יותר ב<b>{storeLabel(meta.stores[refI])}</b> מהמחיר הזול ביותר שלו באזור, ואיפה הוא זול. <span className="sw sw-top" /> המוצרים שמחזיקים את רוב הפער <span className="sw sw-rest" /> השאר</p>
@@ -155,5 +164,6 @@ export function What({ basket, byCode, meta, results, refI, usePromos }: { baske
         )}
       </aside>
     </div>
+    </>
   );
 }

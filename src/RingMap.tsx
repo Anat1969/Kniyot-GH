@@ -21,19 +21,21 @@ export default function RingMap({ results, bestI, refI, selI, hoverI, onHover, o
   }, []);
 
   const located = results.filter((r) => r.dist != null);
+  const kmLat = 111.2, kmLon = 111.2 * Math.cos((home.lat * Math.PI) / 180);
+  const km = located.map((r) => ({ r, e: (r.store.lon! - home.lon) * kmLon, n: (r.store.lat! - home.lat) * kmLat }));
+  const ext = (f: (p: { e: number; n: number }) => number) => Math.max(0.6, ...km.map(f));
   const maxD = Math.max(1.5, ...located.map((r) => r.dist!));
-  const scale = Math.min(W * 0.47, H * 0.56) / (maxD * 1.04); // px per km
+  const colMax = Math.min(130, H * 0.24);
+  const scale = Math.min((W / 2 - 70) / ext((p) => Math.abs(p.e)), (H * 0.6 - colMax - 60) / ext((p) => p.n), (H * 0.4 - 26) / ext((p) => -p.n)); // px per km
   const ringStep = maxD > 6 ? 2 : 1;
   const rings = useMemo(() => { const out: number[] = []; for (let d = ringStep; d <= maxD * 1.1; d += ringStep) out.push(d); return out; }, [maxD, ringStep]);
 
   const elig = results.filter((r) => r.eligible && r.inRadius);
   const lo = Math.min(...elig.map((r) => r.total)), hi = Math.max(...elig.map((r) => r.total));
-  const colH = (t: number) => 22 + (hi > lo ? ((t - lo) / (hi - lo)) * Math.min(130, H * 0.26) : 0);
-  const kmLat = 111.2, kmLon = 111.2 * Math.cos((home.lat * Math.PI) / 180);
+  const colH = (t: number) => 22 + (hi > lo ? ((t - lo) / (hi - lo)) * colMax : 0);
 
-  const pts = located.map((r) => ({
-    r, x: cx + (r.store.lon! - home.lon) * kmLon * scale, y: cy - (r.store.lat! - home.lat) * kmLat * scale,
-  })).sort((a, b) => a.y - b.y);
+  const pts = km.map(({ r, e, n }) => ({ r, x: cx + e * scale, y: cy - n * scale })).sort((a, b) => a.y - b.y);
+  const kindOf = (r: StoreResult) => (!(r.eligible && r.inRadius) ? 'off' : r.i === bestI ? 'best' : r.i === refI ? 'ref' : refI != null && results[refI] && r.total > results[refI].total ? 'high' : 'mid');
 
   const onWheel = (e: React.WheelEvent) => {
     const rect = svg.current!.getBoundingClientRect();
@@ -60,19 +62,19 @@ export default function RingMap({ results, bestI, refI, selI, hoverI, onHover, o
         {rings.map((d) => (
           <g key={d}>
             <circle cx={cx} cy={cy} r={d * scale} fill="none" stroke="#2E2E2B" strokeOpacity={0.13} strokeWidth={1 / view.k} strokeDasharray="2 5" />
-            <text x={cx + d * scale * 0.707 + 4} y={cy - d * scale * 0.707 - 4} className="ring-t" fontSize={12 / view.k}>{d} ק״מ</text>
+            <text x={cx - d * scale * 0.707 - 6} y={cy + d * scale * 0.707 + 14} textAnchor="start" style={{ direction: 'rtl' }} className="ring-t" fontSize={11 / view.k}>{`${d} ק״מ`}</text>
           </g>
         ))}
         <g>
           <circle cx={cx} cy={cy} r={7 / view.k} fill="#2E2E2B" />
           <circle cx={cx} cy={cy} r={13 / view.k} fill="none" stroke="#2E2E2B" strokeWidth={1.2 / view.k} />
-          <text x={cx} y={cy + 30 / view.k} textAnchor="middle" className="home-t" fontSize={13 / view.k}>{home.label}</text>
+          <text x={cx} y={cy + 28 / view.k} textAnchor="middle" className="home-t" fontSize={12 / view.k}>הבית</text>
         </g>
         {pts.map(({ r, x, y }) => {
           const on = r.eligible && r.inRadius;
           const h = on ? colH(r.total) / view.k : 14 / view.k;
           const w = 20 / view.k;
-          const kind = !on ? 'off' : r.i === bestI ? 'best' : r.i === refI ? 'ref' : refI != null && results[refI] && r.total > results[refI].total ? 'high' : 'mid';
+          const kind = kindOf(r);
           const active = hoverI === r.i || selI === r.i;
           const dim = hoverI != null && hoverI !== r.i;
           return (
@@ -82,13 +84,19 @@ export default function RingMap({ results, bestI, refI, selI, hoverI, onHover, o
               <ellipse cx={x} cy={y} rx={w * 0.9} ry={w * 0.32} className="col-shadow" />
               <rect x={x - w / 2} y={y - h} width={w} height={h} className="col-body" />
               <rect x={x - w / 2} y={y - h} width={w * 0.28} height={h} className="col-side" />
-              {(on && (active || kind === 'best' || kind === 'ref' || view.k > 1.6)) && (
-                <g>
-                  <text x={x} y={y - h - 22 / view.k} textAnchor="middle" className="col-price" fontSize={(active || kind === 'best' ? 20 : 16) / view.k}>{nis(r.total)} ₪</text>
-                  <text x={x} y={y - h - 6 / view.k} textAnchor="middle" className="col-name" fontSize={12.5 / view.k}>{storeLabel(r.store)}</text>
-                </g>
-              )}
               {selI === r.i && <rect x={x - w / 2 - 3 / view.k} y={y - h - 3 / view.k} width={w + 6 / view.k} height={h + 6 / view.k} fill="none" stroke="#2E2E2B" strokeWidth={1.5 / view.k} />}
+            </g>
+          );
+        })}
+        {pts.map(({ r, x, y }) => {
+          const on = r.eligible && r.inRadius, kind = kindOf(r), active = hoverI === r.i || selI === r.i;
+          if (!on || !(active || kind === 'best' || kind === 'ref' || view.k > 1.6)) return null;
+          if (hoverI != null && !active) return null;
+          const h = colH(r.total) / view.k;
+          return (
+            <g key={'l' + r.i} className={`col-${kind}`} pointerEvents="none">
+              <text x={x} y={y - h - 24 / view.k} textAnchor="middle" className="col-price" fontSize={(active || kind === 'best' ? 20 : 16) / view.k}>{nis(r.total)} ₪</text>
+              <text x={x} y={y - h - 7 / view.k} textAnchor="middle" className="col-name" fontSize={12.5 / view.k}>{storeLabel(r.store)}</text>
             </g>
           );
         })}
