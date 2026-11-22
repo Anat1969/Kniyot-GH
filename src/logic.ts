@@ -5,11 +5,11 @@ export type Row = [code: string, name: string, man: string, qty: string, unit: s
 
 export interface Store {
   chain: string; chainName: string; sub: string; id: string; name: string; address: string;
-  lat: number | null; lon: number | null; located: boolean; items: number; fileDate: string;
+  lat: number | null; lon: number | null; located: boolean; approx?: boolean; city?: string; items: number; fileDate: string;
 }
 export interface Meta {
   date: string; generatedAt: string;
-  region: { id: string; name: string; nameLatin: string; center: [number, number] };
+  region: { id: string; name: string; nameLatin: string; center: [number, number]; radiusKm: number };
   stores: Store[]; failures: { chain: string; store: string; why: string }[]; sample: string[];
   stats: { products: number; singleChain: number; chains: number }; source: string;
 }
@@ -21,6 +21,8 @@ export interface Settings {
   ref: number | null; // index of "my store"
   kmCost: number; // NIS per km, both ways
   promos: boolean;
+  region?: string; // which area's price files are loaded
+  homeSet?: boolean; // the user placed the home point
 }
 
 export const COVERAGE_MIN = 0.85;
@@ -35,8 +37,9 @@ export function haversine(a: [number, number], b: [number, number]): number {
 export function storeLabel(s: Store): string {
   const subName = s.sub.replace('שופרסל ', '');
   const sub = subName && !s.name.toLowerCase().includes(subName.toLowerCase()) ? subName + ' ' : '';
-  let n = s.name.replace(/אשדוד|אשדו$|אש$/g, '').replace(/\(.*?\)/g, '').replace(/\s*[-–]\s*/g, ' ').replace(/\s+/g, ' ').trim();
-  if (!n) n = s.address.split(',')[0].replace(/\d+/g, '').trim();
+  let n = s.name.replace(/אשדוד|אשדו$|אש$|ירושלים/g, '').replace(s.city || '\u0000', '').replace(/\(.*?\)/g, '').replace(/\s*[-–]\s*/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!n) n = s.address.split(',')[0].replace(/\d+/g, '').trim() || s.city || '';
+  if (s.city && n.replace(subName, '').trim().length < 2) n = `${n} ${s.city}`.trim();
   return `${s.chainName} ${sub}${n}`.replace(/\b(be)\s+be\b/i, '$1').replace(/\s+/g, ' ').trim();
 }
 

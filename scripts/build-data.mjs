@@ -10,7 +10,9 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = process.argv[2] || join(HERE, '..', 'public', 'data');
-const region = JSON.parse(readFileSync(join(HERE, process.env.REGION || 'region.json'), 'utf8'));
+const config = JSON.parse(readFileSync(join(HERE, 'regions.json'), 'utf8'));
+let region = config.regions[0]; // the region being built
+const only = process.env.ONLY; // build a single region id
 const GEO_CACHE = join(HERE, 'geocode-cache.json');
 const geo = existsSync(GEO_CACHE) ? JSON.parse(readFileSync(GEO_CACHE, 'utf8')) : {};
 const TMP = mkdtempSync(join(tmpdir(), 'kniyot-'));
@@ -52,20 +54,33 @@ const tag = (s, name) => {
 const blocks = (s, name) => s.match(new RegExp(`<${name}>[\\s\\S]*?</${name}>`, 'gi')) || [];
 const clean = (s) => s.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\s+/g, ' ').trim();
 
-function inRegion(st) {
-  const city = tag(st, 'City'), name = tag(st, 'StoreName'), addr = tag(st, 'Address');
-  if (tag(st, 'StoreType') === '2') return false; // online picking
-  if (/ליקוט|אונליין|אינטרנט|online/i.test(name)) return false;
-  if (region.cityCodes.includes(city.replace(/^0+/, ''))) return true;
-  return region.cityNames.some((c) => city.includes(c) || name.includes(c));
+function cityOf(st) {
+  const city = tag(st, 'City'), name = tag(st, 'StoreName');
+  if (tag(st, 'StoreType') === '2') return null; // online picking
+  if (/ליקוט|אונליין|אינטרנט|online/i.test(name)) return null;
+  const code = city.replace(/^0+/, '');
+  return region.cities.find((c) => c.code === code) || region.cities.find((c) => city.includes(c.name) || name.includes(c.name)) || null;
 }
 
-function storeObj(chain, st, sub = '') {
+function storeObj(chain, st, city, sub = '') {
   return {
-    chain: chain.key, chainName: chain.name, sub,
+    chain: chain.key, chainName: chain.name, sub, city: city.name,
     id: tag(st, 'StoreID').replace(/^0+/, '') || '0',
     name: clean(tag(st, 'StoreName')), address: clean(tag(st, 'Address')),
   };
+}
+
+const km = (a, b) => {
+  const rad = Math.PI / 180, dLat = (b[0] - a[0]) * rad, dLon = (b[1] - a[1]) * rad;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * rad) * Math.cos(b[0] * rad) * Math.sin(dLon / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(h));
+};
+// locate first, download only what is inside the region's radius
+function keep(s) {
+  const g = geocode(s);
+  s.geo = g;
+  if (!g) return !!region.keepUnlocated;
+  return km(region.center, [g.lat, g.lon]) <= region.radiusKm;
 }
 
 // ---------- Shufersal ----------
@@ -79,7 +94,7 @@ function shufersal(chain) {
   for (const sc of blocks(xml, 'SubChain')) {
     const sub = clean(tag(sc, 'SubChainName'));
     if (/אונליין|online|ישיר/i.test(sub)) continue;
-    for (const st of blocks(sc, 'Store')) if (inRegion(st)) stores.push(storeObj(chain, st, sub));
+    for (const st of blocks(sc, 'Store')) { const c = cityOf(st); if (!c) continue; const o = storeObj(chain, st, c, sub); if (keep(o)) stores.push(o); }
   }
   for (const s of stores) {
     const pick = (cat, prefix) => shufersalLinks(cat, s.id).filter((u) => u.includes(prefix)).sort().pop();
@@ -107,7 +122,7 @@ function cerberus(chain) {
   const get = (f) => decode(curl(['-b', jar, `${base}/file/d/${f}`], { binary: true }));
   const storesFile = files.filter((f) => /^stores/i.test(f)).sort().pop();
   if (!storesFile) return [];
-  const stores = blocks(get(storesFile), 'Store').filter(inRegion).map((st) => storeObj(chain, st));
+  const stores = blocks(get(storesFile), 'Store').map((st) => { const c = cityOf(st); return c ? storeObj(chain, st, c) : null; }).filter((o) => o && keep(o));
   for (const s of stores) {
     // two naming schemes: <chain>-<store>-<datetime> and <chain>-<sub>-<store>-<date>-<time>
     const stamp = (f) => (f.match(new RegExp(`-0*${s.id}-(\\d{8})`)) || [])[1] || '';
@@ -127,27 +142,33 @@ function cerberus(chain) {
 // ---------- Geocoding (OpenStreetMap Nominatim, cached) ----------
 function geocode(s) {
   const key = `${s.chain}|${s.id}`;
-  if (geo[key]) return geo[key];
-  const street = s.address.replace(/,?\s*(אשדוד|מתחם.*|סטאר סנטר.*|א\.ת\..*|רובע.*|קניון.*)$/g, '').replace(/[,"]/g, ' ').trim();
+  if (key in geo) return geo[key];
+  const street = s.address.replace(new RegExp(`,?\\s*(${s.city}|מתחם.*|סטאר סנטר.*|א\\.ת\\..*|רובע.*|קניון.*)$`, 'g'), '').replace(/[,"]/g, ' ').trim();
   const m = street.match(/\d+/);
   const words = street.replace(/\d+/g, ' ').replace(/\s+/g, ' ').trim();
   const w2 = words.replace(/בי ח/, 'בית חולים').replace(/רח'|שכונת|שדרות|פינת.*/g, ' ')
     .split(/\s+/).filter((t) => t.length > 1).join(' ');
-  const queries = [...new Set([m ? `${words} ${m[0]}, ${region.name}` : null, `${words}, ${region.name}`,
-    m ? `${w2} ${m[0]}, ${region.name}` : null, `${w2}, ${region.name}`].filter(Boolean))];
+  const queries = [...new Set([m ? `${words} ${m[0]}, ${s.city}` : null, `${words}, ${s.city}`,
+    m ? `${w2} ${m[0]}, ${s.city}` : null, `${w2}, ${s.city}`].filter((q) => q && q.replace(s.city, '').replace(/[, ]/g, '').length > 1))];
   for (const q of queries) {
     try {
       execFileSync('sleep', ['1.2']);
-      const r = JSON.parse(curl([`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=il&accept-language=he&q=${encodeURIComponent(q)}`]));
+      const r = JSON.parse(curl([`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=il,ps&accept-language=he&q=${encodeURIComponent(q)}`]));
       if (r[0]) {
         const lat = +r[0].lat, lon = +r[0].lon;
-        if (Math.abs(lat - region.center[0]) < 0.15 && Math.abs(lon - region.center[1]) < 0.15) {
-          return (geo[key] = { lat: +lat.toFixed(5), lon: +lon.toFixed(5), q });
-        }
+        if (km(region.center, [lat, lon]) < 45) return (geo[key] = { lat: +lat.toFixed(5), lon: +lon.toFixed(5), q });
       }
     } catch (e) { log('  geocode failed', q); }
   }
-  return null;
+  // a small town: its centre is close enough, and it is marked as approximate
+  if (s.city !== 'ירושלים' && s.city !== region.name) {
+    try {
+      execFileSync('sleep', ['1.2']);
+      const r = JSON.parse(curl([`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=il,ps&accept-language=he&q=${encodeURIComponent(s.city)}`]));
+      if (r[0]) return (geo[key] = { lat: +(+r[0].lat).toFixed(5), lon: +(+r[0].lon).toFixed(5), q: s.city, approx: true });
+    } catch (e) { log('  geocode failed', s.city); }
+  }
+  return (geo[key] = null);
 }
 
 // ---------- Parse ----------
@@ -204,9 +225,14 @@ function parsePromos(xml, prices, today) {
 
 // ---------- Main ----------
 const today = new Date(Date.now() + 2 * 3600e3).toISOString().slice(0, 10);
+const index = [];
+for (region of config.regions) {
+if (only && region.id !== only) continue;
+log('=== region', region.name);
+const DIR = join(OUT, region.id);
 let stores = [];
 const failures = [];
-for (const chain of region.chains) {
+for (const chain of config.chains) {
   try {
     const got = chain.portal === 'shufersal' ? shufersal(chain) : cerberus(chain);
     log(chain.name, 'stores in region:', got.length, 'with prices:', got.filter((s) => s.priceXml).length);
@@ -223,11 +249,11 @@ const kept = [];
 for (const s of stores) {
   const prices = parsePrices(s.priceXml);
   if (prices.size < 1500) { failures.push({ chain: s.chainName, store: s.name, why: `סניף קטן: ${prices.size} מוצרים` }); continue; }
-  const g = geocode(s);
+  const g = s.geo;
   const idx = kept.length;
   kept.push({
-    chain: s.chain, chainName: s.chainName, sub: s.sub || '', id: s.id, name: s.name, address: s.address,
-    lat: g ? g.lat : null, lon: g ? g.lon : null, located: !!g, items: prices.size,
+    chain: s.chain, chainName: s.chainName, sub: s.sub || '', id: s.id, name: s.name, address: s.address, city: s.city,
+    lat: g ? g.lat : null, lon: g ? g.lon : null, located: !!g, approx: !!(g && g.approx), items: prices.size,
     fileDate: s.fileDate ? `${s.fileDate.slice(0, 4)}-${s.fileDate.slice(4, 6)}-${s.fileDate.slice(6, 8)}` : '',
   });
   const promos = s.promoXml ? parsePromos(s.promoXml, prices, today) : new Map();
@@ -254,7 +280,7 @@ for (const [code, p] of products) {
 rows.sort((a, b) => a[1].localeCompare(b[1], 'he'));
 
 // history: lowest shelf price per product, recorded only when it changes
-const histFile = join(OUT, 'history.json');
+const histFile = join(DIR, 'history.json');
 let hist = { days: [], p: {} };
 if (existsSync(histFile)) { try { hist = JSON.parse(readFileSync(histFile, 'utf8')); } catch {} }
 if (hist.days[hist.days.length - 1] !== today) hist.days.push(today);
@@ -284,16 +310,19 @@ for (const k of KEYS) {
   if (best && bestN >= Math.ceil(n * 0.5) && !sample.includes(best[0])) sample.push(best[0]);
 }
 
-mkdirSync(OUT, { recursive: true });
+mkdirSync(DIR, { recursive: true });
 const meta = {
   date: today, generatedAt: new Date().toISOString(),
-  region: { id: region.id, name: region.name, nameLatin: region.nameLatin, center: region.center },
+  region: { id: region.id, name: region.name, nameLatin: region.nameLatin, center: region.center, radiusKm: region.radiusKm },
   stores: kept, failures, sample,
   stats: { products: rows.length, singleChain: single, chains: new Set(kept.map((s) => s.chain)).size },
   source: 'קובצי שקיפות המחירים שהרשתות מפרסמות לפי תקנות קידום התחרות בענף המזון (שקיפות מחירים), 2014',
 };
-writeFileSync(join(OUT, 'meta.json'), JSON.stringify(meta));
-writeFileSync(join(OUT, 'catalog.json'), JSON.stringify(rows));
+writeFileSync(join(DIR, 'meta.json'), JSON.stringify(meta));
+writeFileSync(join(DIR, 'catalog.json'), JSON.stringify(rows));
 writeFileSync(histFile, JSON.stringify(hist));
 log(`done: ${n} stores, ${rows.length} comparable products, ${single} single-chain products dropped`);
 if (n < 3) { log('too few stores, failing'); process.exit(1); }
+index.push({ id: region.id, name: region.name, center: region.center, radiusKm: region.radiusKm, date: today, stores: n });
+}
+if (!only) writeFileSync(join(OUT, 'regions.json'), JSON.stringify(index));

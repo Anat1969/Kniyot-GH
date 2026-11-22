@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 const [respFile, truthFile] = process.argv.slice(2);
 execFileSync('npx', ['esbuild', 'src/logic.ts', '--bundle', '--format=esm', '--outfile=/tmp/kniyot-logic.mjs', '--log-level=error']);
 const { matchLine } = await import('/tmp/kniyot-logic.mjs');
-const rows = JSON.parse(readFileSync('public/data/catalog.json', 'utf8'));
+const rows = JSON.parse(readFileSync('public/data/ashdod/catalog.json', 'utf8'));
 const resp = JSON.parse(readFileSync(respFile, 'utf8')), truth = JSON.parse(readFileSync(truthFile, 'utf8'));
 let ok = 0, sure = 0, wrongSure = 0;
 resp.lines.forEach((l, k) => {
