@@ -270,13 +270,14 @@ for (const r of rows) {
 for (const c of Object.keys(hist.p)) if (!live.has(c)) delete hist.p[c];
 
 // a starter basket: for each everyday keyword, the product carried by the most stores
-const KEYS = ['חלב 3%', 'קוטג', 'גבינה לבנה', 'גבינה צהובה', 'יוגורט', 'חמאה', 'ביצים', 'קפה נמס', 'קפה טורקי', 'סוכר לבן', 'קמח', 'אורז', 'פסטה', 'שמן קנולה', 'טונה', 'חומוס', 'קטשופ', 'קורנפלקס', 'שוקולד חלב', 'במבה', 'ביסלי', 'קולה', 'מים מינרלים', 'נייר טואלט', 'נוזל כלים', 'אבקת כביסה', 'שמפו', 'משחת שיניים'];
+const KEYS = ['חלב 3%', 'גבינת קוטג', 'גבינה לבנה 5%', 'גבינה צהובה', 'יוגורט', 'חמאה', 'קפה נמס', 'קפה טורקי', 'סוכר לבן', 'קמח', 'אורז', 'פסטה', 'ספגטי', 'שמן קנולה', 'טונה', 'חומוס', 'טחינה', 'קטשופ', 'מיונז', 'קורנפלקס', 'שוקולד', 'במבה', 'ביסלי', 'קוקה קולה', 'מים מינרלים', 'נייר טואלט', 'נוזל כלים', 'אבקת כביסה', 'מרכך כביסה', 'שמפו', 'משחת שיניים'];
 const sample = [];
 for (const k of KEYS) {
   const toks = k.split(' ');
   let best = null, bestN = 0;
   for (const r of rows) {
-    if (r[5] || !toks.every((t) => r[1].includes(t))) continue;
+    const at = r[1].indexOf(toks[0]);
+    if (r[5] || at < 0 || at > 1 || !toks.every((t) => r[1].includes(t))) continue;
     const c = r[6].filter((x) => x != null).length;
     if (c > bestN) { best = r; bestN = c; }
   }
