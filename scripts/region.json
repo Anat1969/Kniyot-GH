@@ -1,0 +1,17 @@
+{
+  "id": "ashdod",
+  "name": "אשדוד",
+  "nameLatin": "Ashdod",
+  "center": [31.8014, 34.6435],
+  "cityCodes": ["70"],
+  "cityNames": ["אשדוד"],
+  "chains": [
+    { "key": "shufersal", "name": "שופרסל", "portal": "shufersal" },
+    { "key": "ramilevi", "name": "רמי לוי", "portal": "cerberus", "user": "RamiLevi" },
+    { "key": "yohananof", "name": "יוחננוף", "portal": "cerberus", "user": "yohananof" },
+    { "key": "osherad", "name": "אושר עד", "portal": "cerberus", "user": "osherad" },
+    { "key": "tivtaam", "name": "טיב טעם", "portal": "cerberus", "user": "TivTaam" },
+    { "key": "keshet", "name": "קשת טעמים", "portal": "cerberus", "user": "Keshet" },
+    { "key": "freshmarket", "name": "פרשמרקט", "portal": "cerberus", "user": "freshmarket" }
+  ]
+}
