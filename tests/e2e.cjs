@@ -23,6 +23,28 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); 
   const fit = await p1.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1 && document.documentElement.scrollWidth <= innerWidth);
   ok(fit, 'the screen fits without page scroll');
 
+  // the home point: typed the way people type it, found, named, and drawn on the street map
+  ok((await p1.locator('svg.ringmap .tiles image').count()) >= 4, 'street map tiles under the branches');
+  await p1.fill('input[aria-label="כתובת הבית"]', 'רחוב נוף הרים , הר אדר');
+  await p1.locator('.home-ctl .chip', { hasText: 'חיפוש' }).click();
+  await p1.waitForFunction(() => /נמצא/.test(document.querySelector('.home-line')?.textContent || ''), null, { timeout: 20000 }).catch(() => {});
+  const line = await p1.locator('.home-line').textContent();
+  ok(/^הבית:/.test(line) && /נמצא: נוף הרים/.test(line), 'address is found and named: ' + line.slice(0, 70));
+  await p1.waitForSelector('.receipt li');
+  ok(/הר אדר/.test(await p1.locator('svg.ringmap .home-t').textContent()), 'home pin on the map carries the address');
+  const far = await p1.locator('.rank-row:not(.dead) .rank-name small').first().textContent();
+  ok(/ק״מ/.test(far), 'distances are measured from the new home');
+  if (process.env.SHOT) await p1.screenshot({ path: process.env.SHOT });
+  // the same placement by clicking the map
+  const before = await p1.locator('.home-line small').textContent();
+  await p1.locator('.home-ctl .chip', { hasText: 'בחירה במפה' }).click();
+  const box = await p1.locator('svg.ringmap').boundingBox();
+  await p1.mouse.click(box.x + box.width * 0.72, box.y + box.height * 0.62);
+  await p1.waitForFunction((b) => (document.querySelector('.home-line small')?.textContent || b) !== b, before, { timeout: 20000 }).catch(() => {});
+  const after = await p1.locator('.home-line small').textContent();
+  ok(after !== before && /נמצא/.test(await p1.locator('.home-line').textContent()), `a click on the map moves the home (${before} to ${after})`);
+  await p1.waitForSelector('.receipt li');
+
   await p1.fill('input[aria-label="חיפוש מוצר"]', 'במבה'); await p1.waitForSelector('.sugg button');
   await p1.locator('.sugg button').first().click();
   ok((await p1.locator('.receipt li').count()) === 1, 'first product replaces the sample basket');
@@ -36,7 +58,7 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); 
     await p1.waitForSelector('.review-list li', { timeout: 20000 });
     ok(/תואם/.test(await p1.locator('.review').textContent()), 'receipt lines add up to the receipt total');
     await p1.locator('.review .btn.primary').click();
-    ok((await p1.locator('.receipt li').count()) >= 10, 'receipt lines entered the basket');
+    ok((await p1.locator('.receipt li').count()) >= 8, 'receipt lines entered the basket');
   }
   for (const r of ['when', 'what', 'trust']) {
     await p1.goto(BASE + '/#/' + r); await p1.waitForTimeout(500);

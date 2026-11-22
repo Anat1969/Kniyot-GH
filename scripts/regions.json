@@ -1,0 +1,101 @@
+{
+ "chains": [
+  {
+   "key": "shufersal",
+   "name": "שופרסל",
+   "portal": "shufersal"
+  },
+  {
+   "key": "ramilevi",
+   "name": "רמי לוי",
+   "portal": "cerberus",
+   "user": "RamiLevi"
+  },
+  {
+   "key": "yohananof",
+   "name": "יוחננוף",
+   "portal": "cerberus",
+   "user": "yohananof"
+  },
+  {
+   "key": "osherad",
+   "name": "אושר עד",
+   "portal": "cerberus",
+   "user": "osherad"
+  },
+  {
+   "key": "tivtaam",
+   "name": "טיב טעם",
+   "portal": "cerberus",
+   "user": "TivTaam"
+  },
+  {
+   "key": "keshet",
+   "name": "קשת טעמים",
+   "portal": "cerberus",
+   "user": "Keshet"
+  },
+  {
+   "key": "freshmarket",
+   "name": "פרשמרקט",
+   "portal": "cerberus",
+   "user": "freshmarket"
+  }
+ ],
+ "regions": [
+  {
+   "id": "har-adar",
+   "name": "הר אדר והרי ירושלים",
+   "nameLatin": "Har Adar",
+   "center": [
+    31.8266,
+    35.1296
+   ],
+   "radiusKm": 11,
+   "keepUnlocated": false,
+   "cities": [
+    {
+     "code": "3769",
+     "name": "הר אדר"
+    },
+    {
+     "code": "1015",
+     "name": "מבשרת ציון"
+    },
+    {
+     "code": "472",
+     "name": "אבו גוש"
+    },
+    {
+     "code": "3730",
+     "name": "גבעת זאב"
+    },
+    {
+     "code": "1137",
+     "name": "קרית יערים"
+    },
+    {
+     "code": "3000",
+     "name": "ירושלים"
+    }
+   ]
+  },
+  {
+   "id": "ashdod",
+   "name": "אשדוד",
+   "nameLatin": "Ashdod",
+   "center": [
+    31.8014,
+    34.6435
+   ],
+   "radiusKm": 12,
+   "keepUnlocated": true,
+   "cities": [
+    {
+     "code": "70",
+     "name": "אשדוד"
+    }
+   ]
+  }
+ ]
+}

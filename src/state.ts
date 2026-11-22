@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { History, Item, Meta, Row, Settings } from './logic';
 import { cloudLoad, cloudSave } from './cloud';
 
+const KEY = 'kniyot.state.v1';
 const FRESH = 'https://raw.githubusercontent.com/Anat1969/Kniyot-GH/data/';
 const LOCAL = '/data/';
 
@@ -13,27 +14,38 @@ async function getJson(base: string, name: string) {
   return r.json();
 }
 
-export async function loadData(): Promise<Data> {
+export interface RegionInfo { id: string; name: string; center: [number, number]; radiusKm: number; date: string; stores: number }
+
+export async function loadRegions(): Promise<RegionInfo[]> {
+  try { const r: RegionInfo[] = await getJson(FRESH, 'regions.json'); if (Array.isArray(r) && r.length) return r; } catch { /* snapshot */ }
+  return getJson(LOCAL, 'regions.json');
+}
+
+export async function loadData(regionId: string): Promise<Data> {
   // the daily job publishes to the "data" branch; the bundled snapshot is the fallback
-  let base = LOCAL, fresh = false, meta: Meta;
-  const local: Meta = await getJson(LOCAL, 'meta.json');
+  const dir = regionId + '/';
+  let base = LOCAL + dir, fresh = false, meta: Meta;
+  const local: Meta = await getJson(base, 'meta.json');
   meta = local;
   try {
-    const remote: Meta = await getJson(FRESH, 'meta.json');
-    if (remote.date > local.date && remote.stores.length >= 3) { meta = remote; base = FRESH; fresh = true; }
+    const remote: Meta = await getJson(FRESH + dir, 'meta.json');
+    if (remote.date > local.date && remote.stores.length >= 3) { meta = remote; base = FRESH + dir; fresh = true; }
   } catch { /* snapshot stays */ }
   let rows: Row[], history: History;
   try {
     [rows, history] = await Promise.all([getJson(base, 'catalog.json'), getJson(base, 'history.json')]);
   } catch {
     meta = local; fresh = false;
-    [rows, history] = await Promise.all([getJson(LOCAL, 'catalog.json'), getJson(LOCAL, 'history.json')]);
+    [rows, history] = await Promise.all([getJson(LOCAL + dir, 'catalog.json'), getJson(LOCAL + dir, 'history.json')]);
   }
   return { meta, rows, byCode: new Map(rows.map((r) => [r[0], r])), history, fresh };
 }
 
-export interface Saved { basket: Item[]; settings: Settings; touched: boolean; at: number }
-const KEY = 'kniyot.state.v1';
+export function localSaved(): Saved | null {
+  try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); return s && s.settings ? s : null; } catch { return null; }
+}
+
+export interface Saved { basket: Item[]; settings: Settings; touched: boolean; at: number; ownBasket?: boolean }
 
 export function useSaved(data: Data | null) {
   const [saved, setSaved] = useState<Saved | null>(null);
@@ -42,7 +54,7 @@ export function useSaved(data: Data | null) {
 
   const defaults = useMemo<Saved | null>(() => data && ({
     basket: data.meta.sample.map((c) => ({ c, q: 1 })),
-    settings: { home: { lat: data.meta.region.center[0], lon: data.meta.region.center[1], label: `מרכז ${data.meta.region.name}` }, radius: 0, ref: null, kmCost: 1.4, promos: true },
+    settings: { home: { lat: data.meta.region.center[0], lon: data.meta.region.center[1], label: `מרכז ${data.meta.region.name}` }, radius: 0, ref: null, kmCost: 1.4, promos: true, region: data.meta.region.id, homeSet: false },
     touched: false, at: 0,
   }), [data]);
 

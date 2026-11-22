@@ -4,8 +4,11 @@ import { execFileSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 execFileSync('npx', ['esbuild', 'src/logic.ts', '--bundle', '--format=esm', '--outfile=/tmp/kniyot-logic.mjs', '--log-level=error']);
 const L = await import('/tmp/kniyot-logic.mjs');
-const meta = JSON.parse(readFileSync('public/data/meta.json', 'utf8'));
-const rows = JSON.parse(readFileSync('public/data/catalog.json', 'utf8'));
+const regions = JSON.parse(readFileSync('public/data/regions.json', 'utf8'));
+assert.ok(regions.length >= 1, 'at least one region');
+for (const region of regions) {
+const meta = JSON.parse(readFileSync(`public/data/${region.id}/meta.json`, 'utf8'));
+const rows = JSON.parse(readFileSync(`public/data/${region.id}/catalog.json`, 'utf8'));
 const byCode = new Map(rows.map((r) => [r[0], r]));
 const st = { home: { lat: meta.region.center[0], lon: meta.region.center[1], label: '' }, radius: 0, ref: null, kmCost: 1.4, promos: false };
 const basket = meta.sample.map((c) => ({ c, q: 2 }));
@@ -44,4 +47,5 @@ assert.ok(Math.abs(L.haversine([31.8, 34.65], [31.81, 34.65]) - 1.11) < 0.02);
 assert.equal(L.daysUntil('1125', '2026-11-22'), 3);
 assert.equal(L.search('7290000000000000', rows).length, 0);
 assert.ok(L.search('קוטג', rows).length > 0);
-console.log(`ok: ${rs.length} branches, cheapest ${rank[0].total} at ${L.storeLabel(rank[0].store)}, dearest ${rank[rank.length - 1].total}`);
+console.log(`ok ${region.name}: ${rs.length} branches, cheapest ${rank[0].total} at ${L.storeLabel(rank[0].store)}, dearest ${rank[rank.length - 1].total}`);
+}
