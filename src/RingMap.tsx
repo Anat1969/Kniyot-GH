@@ -10,7 +10,7 @@ interface Props {
 /** Distance against price in one picture: rings are kilometres from home, a column's height is the basket's price. */
 export default function RingMap({ results, bestI, refI, selI, hoverI, onHover, onSelect, home }: Props) {
   const [box, setBox] = useState({ w: 800, h: 520 });
-  const W = box.w, H = box.h, cx = W / 2, cy = H * 0.6;
+  const W = box.w, H = box.h;
   const [view, setView] = useState({ k: 1, x: 0, y: 0 });
   const drag = useRef<{ x: number; y: number; vx: number; vy: number } | null>(null);
   const svg = useRef<SVGSVGElement>(null);
@@ -25,8 +25,12 @@ export default function RingMap({ results, bestI, refI, selI, hoverI, onHover, o
   const km = located.map((r) => ({ r, e: (r.store.lon! - home.lon) * kmLon, n: (r.store.lat! - home.lat) * kmLat }));
   const ext = (f: (p: { e: number; n: number }) => number) => Math.max(0.6, ...km.map(f));
   const maxD = Math.max(1.5, ...located.map((r) => r.dist!));
-  const colMax = Math.min(130, H * 0.24);
-  const scale = Math.min((W / 2 - 70) / ext((p) => Math.abs(p.e)), (H * 0.6 - colMax - 60) / ext((p) => p.n), (H * 0.4 - 26) / ext((p) => -p.n)); // px per km
+  const colMax = Math.min(130, H * 0.2);
+  const padTop = colMax + 62, padBottom = 30, padX = 76;
+  const eE = ext((p) => p.e), eW = ext((p) => -p.e), eN = ext((p) => p.n), eS = ext((p) => -p.n);
+  const scale = Math.min((W - 2 * padX) / (eE + eW), (H - padTop - padBottom) / (eN + eS)); // px per km
+  const cx = padX + eW * scale + (W - 2 * padX - (eE + eW) * scale) / 2;
+  const cy = padTop + eN * scale + (H - padTop - padBottom - (eN + eS) * scale) / 2;
   const ringStep = maxD > 6 ? 2 : 1;
   const rings = useMemo(() => { const out: number[] = []; for (let d = ringStep; d <= maxD * 1.1; d += ringStep) out.push(d); return out; }, [maxD, ringStep]);
 
@@ -73,7 +77,7 @@ export default function RingMap({ results, bestI, refI, selI, hoverI, onHover, o
         {pts.map(({ r, x, y }) => {
           const on = r.eligible && r.inRadius;
           const h = on ? colH(r.total) / view.k : 14 / view.k;
-          const w = 20 / view.k;
+          const w = Math.max(9, Math.min(20, scale * 0.16)) / view.k;
           const kind = kindOf(r);
           const active = hoverI === r.i || selI === r.i;
           const dim = hoverI != null && hoverI !== r.i;
@@ -95,8 +99,17 @@ export default function RingMap({ results, bestI, refI, selI, hoverI, onHover, o
           const h = colH(r.total) / view.k;
           return (
             <g key={'l' + r.i} className={`col-${kind}`} pointerEvents="none">
-              <text x={x} y={y - h - 24 / view.k} textAnchor="middle" className="col-price" fontSize={(active || kind === 'best' ? 20 : 16) / view.k}>{nis(r.total)} ₪</text>
-              <text x={x} y={y - h - 7 / view.k} textAnchor="middle" className="col-name" fontSize={12.5 / view.k}>{storeLabel(r.store)}</text>
+              {kind === 'ref' && !active ? (
+                <>
+                  <text x={x - 16 / view.k} y={y - h / 2 - 4 / view.k} textAnchor="end" className="col-price" fontSize={16 / view.k}>{nis(r.total)} ₪</text>
+                  <text x={x - 16 / view.k} y={y - h / 2 + 12 / view.k} textAnchor="end" className="col-name" fontSize={12.5 / view.k}>{storeLabel(r.store)}</text>
+                </>
+              ) : (
+                <>
+                  <text x={x} y={y - h - 24 / view.k} textAnchor="middle" className="col-price" fontSize={(active || kind === 'best' ? 20 : 16) / view.k}>{nis(r.total)} ₪</text>
+                  <text x={x} y={y - h - 7 / view.k} textAnchor="middle" className="col-name" fontSize={12.5 / view.k}>{storeLabel(r.store)}</text>
+                </>
+              )}
             </g>
           );
         })}

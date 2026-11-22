@@ -193,7 +193,8 @@ select { max-width: 15em; }
 .trust-lead h1 { font-weight: 300; font-size: clamp(1.6em, 2.5vw, 2.7em); line-height: 1.15; } .trust-lead h1 mark { font-weight: 600; }
 .facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
 .haiku { margin-top: 16px; border-inline-start: 3px solid var(--ink); padding-inline-start: 16px; font-weight: 300; font-size: 1.25em; line-height: 1.5; }
-.trust-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.trust-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.7fr); gap: 24px; }
+.files { columns: 2; column-gap: 24px; } .files li { break-inside: avoid; }
 .trust-cols h2 { font-weight: 600; font-size: 1.1em; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--ink); }
 .steps { counter-reset: s; } .steps li { counter-increment: s; padding: 6px 0; border-bottom: 1px solid var(--rule); font-size: .94em; }
 .steps li::before { content: counter(s); font-family: var(--mono); color: var(--ink-3); margin-inline-end: 10px; }
@@ -202,7 +203,12 @@ select { max-width: 15em; }
 .files li { padding: 5px 0; border-bottom: 1px solid var(--rule-soft); font-size: .92em; } .files small { display: block; }
 .source { margin-top: 12px; font-size: .78em; color: var(--ink-3); }
 
+@media (max-height: 800px) and (min-width: 901px) {
+  .sub { display: none; } .controls { gap: 6px 14px; padding: 6px 0; } .field.sm input { width: 7.5em; } .chip { min-width: 3.8em; padding: 4px 8px; }
+  .lead h1 { font-size: 1.7em; } .store-card small { display: none; } .stage { padding-top: 10px; gap: 16px; } select { max-width: 11em; }
+}
 @media (max-width: 900px) {
+  .files { columns: 1; }
   .app { height: auto; min-height: 100%; }
   .bar { flex-wrap: wrap; gap: 8px; padding: 8px 12px; position: sticky; top: 0; }
   .bar nav { order: 5; width: 100%; } .nav { flex: 1; min-width: 0; padding: 6px 4px; }
@@ -210,7 +216,7 @@ select { max-width: 15em; }
   .stage { grid-template-columns: minmax(0, 1fr); padding: 12px; gap: 16px; }
   .where, .lens-body { grid-template-columns: minmax(0, 1fr); }
   .ringmap { height: 78vw; flex: none; } .rank-list, .receipt, .scroll-y, .lens-side { overflow: visible; }
-  .basket { order: -1; } .receipt { max-height: 38vh; overflow-y: auto; }
+  .receipt { max-height: 46vh; overflow-y: auto; }
   .facts, .trust-cols { grid-template-columns: minmax(0, 1fr); }
   .cover { min-height: 78vh; } .cover-actions { inset-inline-end: 12px; bottom: 12px; }
   .pareto li { grid-template-columns: minmax(0, 1fr) auto; } .p-bar { display: none; }

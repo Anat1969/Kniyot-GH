@@ -33,10 +33,11 @@ export function haversine(a: [number, number], b: [number, number]): number {
 }
 
 export function storeLabel(s: Store): string {
-  const sub = s.sub && !s.name.includes(s.sub.replace('שופרסל ', '')) ? s.sub.replace('שופרסל ', '') + ' ' : '';
+  const subName = s.sub.replace('שופרסל ', '');
+  const sub = subName && !s.name.toLowerCase().includes(subName.toLowerCase()) ? subName + ' ' : '';
   let n = s.name.replace(/אשדוד|אשדו$|אש$/g, '').replace(/\(.*?\)/g, '').replace(/\s*[-–]\s*/g, ' ').replace(/\s+/g, ' ').trim();
   if (!n) n = s.address.split(',')[0].replace(/\d+/g, '').trim();
-  return `${s.chainName} ${sub}${n}`.replace(/\s+/g, ' ').trim();
+  return `${s.chainName} ${sub}${n}`.replace(/\b(be)\s+be\b/i, '$1').replace(/\s+/g, ' ').trim();
 }
 
 /** Price of q units of a row in store i: shelf price, or a public promo when the quantity qualifies. */
