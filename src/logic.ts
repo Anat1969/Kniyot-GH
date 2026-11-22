@@ -165,16 +165,18 @@ export function matchLine(text: string, qty: number, unitPrice: number | null, r
     const c = barcode.replace(/^0+/, ''); const r = rows.find((x) => x[0] === c);
     if (r) return { text, qty, price: unitPrice, row: r, score: 1, sure: true, options: [r] };
   }
+  const priced = (r: Row) => unitPrice != null && r[6].some((p) => p != null && Math.abs(p - unitPrice) < 0.011);
   const scored: { r: Row; s: number }[] = [];
   for (const r of rows) {
     let s = similarity(text, r[1]);
     if (s < 0.25) continue;
-    if (unitPrice != null && r[6].some((p) => p != null && Math.abs(p - unitPrice) < 0.011)) s += 0.3;
+    if (priced(r)) s += 0.3;
     scored.push({ r, s });
   }
   scored.sort((a, b) => b.s - a.s);
   const top = scored[0];
-  const sure = !!top && top.s >= 0.75 && (!scored[1] || top.s - scored[1].s > 0.04);
+  // sure only when the name is close, the runner-up is clearly behind, and a known price agrees
+  const sure = !!top && top.s >= 0.75 && (!scored[1] || top.s - scored[1].s > 0.08) && (unitPrice == null || priced(top.r));
   return { text, qty, price: unitPrice, row: top ? top.r : null, score: top ? top.s : 0, sure, options: scored.slice(0, 4).map((x) => x.r) };
 }
 

@@ -3,7 +3,7 @@
 import type { Saved } from './state';
 
 export const SUPA_URL = 'https://ktqmwpbzcnzkhjskqisy.supabase.co';
-export const SUPA_KEY = (import.meta as any).env?.VITE_SUPA_KEY || '__SUPA_PUBLISHABLE_KEY__';
+export const SUPA_KEY = (import.meta as any).env?.VITE_SUPA_KEY || 'sb_publishable_IkreG7naPa1h-d4kGp1gpA_sLU4tg5q';
 const KEY_NAME = 'kniyot.key.v1';
 
 export function deviceKey(): string {

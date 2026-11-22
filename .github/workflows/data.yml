@@ -1,0 +1,29 @@
+name: daily prices
+on:
+  schedule:
+    - cron: '20 5 * * *' # 07:20 or 08:20 in Israel, after the chains publish
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: keep the price history from the last run
+        run: |
+          mkdir -p out
+          if git fetch origin data --depth=1 2>/dev/null; then git show FETCH_HEAD:history.json > out/history.json || rm -f out/history.json; fi
+          [ -f out/history.json ] || cp public/data/history.json out/history.json
+      - name: download and cross the price files
+        run: node scripts/build-data.mjs out
+      - name: publish to the data branch
+        run: |
+          cd out
+          git init -q -b data
+          git config user.name "kniyot-data" && git config user.email "actions@users.noreply.github.com"
+          git add meta.json catalog.json history.json
+          git commit -qm "prices $(date -u +%F)"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" data
